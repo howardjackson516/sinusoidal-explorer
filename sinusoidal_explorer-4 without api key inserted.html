@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sinusoidal Function Explorer</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:#ffffff; --bg2:#f5f5f3; --bg3:#eaeae7;
+  --text:#1a1a18; --text2:#666664; --border:#d0d0cc;
+  --blue:#2266cc; --orange:#cc4400;
+  --r:10px; --font:system-ui,-apple-system,sans-serif; --mono:monospace;
+}
+body { font-family:var(--font); background:var(--bg3); color:var(--text); padding:1.5rem 1rem; min-height:100vh; }
+.wrap { max-width:820px; margin:0 auto; }
+h1 { font-size:20px; font-weight:600; margin-bottom:4px; }
+.sub { font-size:14px; color:var(--text2); margin-bottom:1.2rem; }
+.card { background:var(--bg); border:1px solid var(--border); border-radius:var(--r); padding:1.2rem; margin-bottom:1.1rem; }
+.slabel { font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:.1em; font-weight:600; margin-bottom:10px; }
+
+.eq-row { display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:10px; }
+.eq { font-family:var(--mono); font-size:15px; font-weight:bold;
+      padding:5px 14px; border-radius:6px; border:1px solid var(--border); background:var(--bg2); }
+.eq.c1 { color:var(--blue); }
+.eq.c2 { color:var(--orange); display:none; }
+
+.tog { display:flex; gap:6px; margin-bottom:10px; }
+.tbtn { font-size:13px; padding:5px 14px; border-radius:6px;
+        border:1px solid var(--border); background:var(--bg2);
+        color:var(--text2); cursor:pointer; font-family:var(--font); }
+.tbtn.on { background:var(--blue); color:#fff; border-color:var(--blue); font-weight:600; }
+
+/* canvas wrapper — position:relative so tooltip can be absolute inside */
+.cbox { position:relative; margin-bottom:6px; }
+canvas#cv { display:block; width:100%; height:280px; border:1px solid var(--border);
+            border-radius:6px; background:#fafafa; cursor:crosshair; }
+
+/* readout tooltip that follows the dot */
+#readout {
+  position:absolute; pointer-events:none; display:none;
+  background:rgba(20,20,20,0.88); color:#fff;
+  font-family:var(--mono); font-size:12px; line-height:1.6;
+  padding:6px 10px; border-radius:6px; white-space:nowrap;
+  transform:translate(-50%, -110%);
+  border:1px solid rgba(255,255,255,0.15);
+}
+
+.legend { display:flex; gap:18px; font-size:13px; color:var(--text2); margin-top:4px; }
+.ldot { display:inline-block; width:28px; height:3px; border-radius:2px; vertical-align:middle; margin-right:5px; }
+
+.cgrid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.1rem; }
+@media(max-width:560px){ .cgrid { grid-template-columns:1fr; } }
+.ccard { background:var(--bg); border:1px solid var(--border); border-radius:var(--r); padding:1rem; }
+.cr { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+.cr:last-child { margin-bottom:0; }
+.cl { font-size:12px; color:var(--text2); min-width:110px; font-family:var(--mono); }
+.cv { font-size:13px; font-weight:600; min-width:56px; text-align:right; font-family:var(--mono); }
+.cv.bl { color:var(--blue); } .cv.or { color:var(--orange); }
+input[type=range] { flex:1; cursor:pointer; }
+.ph { background:var(--bg2); border:1px solid var(--border); border-radius:var(--r);
+      display:flex; align-items:center; justify-content:center;
+      min-height:130px; padding:1rem; font-size:13px; color:var(--text2); text-align:center; }
+
+.qbox { background:var(--bg2); border-radius:6px; padding:1rem; margin-bottom:1rem;
+        font-size:15px; line-height:1.7; min-height:60px; border:1px solid var(--border); }
+.arow { display:flex; gap:8px; }
+.arow input { flex:1; font-size:14px; padding:9px 12px; border-radius:6px;
+              border:1px solid var(--border); font-family:var(--font); outline:none; background:var(--bg); color:var(--text); }
+.arow input:focus { border-color:var(--blue); box-shadow:0 0 0 2px rgba(34,102,204,.15); }
+.sbtn { padding:9px 18px; border-radius:6px; border:1px solid var(--blue);
+        background:var(--blue); color:#fff; font-size:14px; font-family:var(--font); cursor:pointer; font-weight:600; }
+.sbtn:hover { background:#1a55bb; }
+.fb { margin-top:10px; padding:10px 14px; border-radius:6px; font-size:14px; line-height:1.65; display:none; }
+.fb-ok  { background:#eaf5d8; color:#2d6600; border:1px solid #b0d880; }
+.fb-bad { background:#fdecea; color:#9b1c1c; border:1px solid #f0b0b0; }
+.fb-tip { background:#e8f0fb; color:#1a3a80; border:1px solid #99bbee; }
+.brow { display:flex; align-items:center; justify-content:space-between; margin-top:12px; flex-wrap:wrap; gap:8px; }
+.nqbtn { font-size:13px; padding:6px 14px; border-radius:6px; border:1px solid var(--border);
+         background:transparent; color:var(--text2); cursor:pointer; font-family:var(--font); }
+.nqbtn:hover { color:var(--text); border-color:#999; }
+.srow { display:flex; gap:8px; }
+.schip { font-size:12px; padding:4px 12px; border-radius:6px; background:var(--bg2); color:var(--text2); border:1px solid var(--border); }
+.ldg { font-size:13px; color:var(--text2); font-style:italic; padding:8px 0; }
+.notice { background:#fff8e0; color:#7a5800; border:1px solid #e8cc60;
+          border-radius:6px; padding:10px 14px; font-size:13px; margin-bottom:1.1rem; line-height:1.6; display:none; }
+footer { text-align:center; font-size:12px; color:var(--text2); padding-top:.5rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Sinusoidal Function Explorer</h1>
+  <p class="sub">y(t) = A sin(ωt + φ) — hover over the graph to read values</p>
+
+  <div id="notice" class="notice">
+    ⚠️ <strong>API key missing.</strong> Open this file in VS Code, find <code>const ANTHROPIC_API_KEY = ''</code> and paste your key. The app still works but uses keyword-based answer checking.
+  </div>
+
+  <!-- GRAPH -->
+  <div class="card">
+    <p class="slabel">Graph</p>
+    <div class="eq-row">
+      <span class="eq c1" id="eq1">y₁(t) = 1.0 sin(1000t + 0°)</span>
+      <span class="eq c2" id="eq2">y₂(t) = 1.0 sin(1000t + 0°)</span>
+    </div>
+    <div class="tog">
+      <button class="tbtn on" id="btn1" onclick="setMode('c1')">Curve 1 only</button>
+      <button class="tbtn"    id="btn2" onclick="setMode('cmp')">Compare two curves</button>
+    </div>
+    <div class="cbox">
+      <canvas id="cv" width="760" height="280"
+              onmousemove="onMove(event)" onmouseleave="onLeave()"></canvas>
+      <div id="readout"></div>
+    </div>
+    <div class="legend">
+      <span><span class="ldot" style="background:var(--blue)"></span>Curve 1</span>
+      <span id="leg2" style="display:none"><span class="ldot" style="background:var(--orange)"></span>Curve 2 (dashed)</span>
+      <span style="margin-left:auto;font-size:12px;color:#aaa;">← hover to inspect values</span>
+    </div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="cgrid">
+    <div>
+      <p class="slabel">Curve 1 parameters</p>
+      <div class="ccard">
+        <div class="cr">
+          <span class="cl">A₁ (arb.)</span>
+          <input type="range" min="0" max="3" step="0.2" value="1" id="A1" oninput="upd()">
+          <span class="cv bl" id="vA1">1.0</span>
+        </div>
+        <div class="cr">
+          <span class="cl">ω₁ (rad/s)</span>
+          <input type="range" min="600" max="3000" step="100" value="1000" id="w1" oninput="upd()">
+          <span class="cv bl" id="vw1">1000</span>
+        </div>
+        <div class="cr">
+          <span class="cl">φ₁ (degrees)</span>
+          <input type="range" min="0" max="360" step="20" value="0" id="p1" oninput="upd()">
+          <span class="cv bl" id="vp1">0°</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="c2ctrl" style="display:none">
+      <p class="slabel">Curve 2 parameters</p>
+      <div class="ccard">
+        <div class="cr">
+          <span class="cl">A₂ (arb.)</span>
+          <input type="range" min="0" max="3" step="0.2" value="1" id="A2" oninput="upd()">
+          <span class="cv or" id="vA2">1.0</span>
+        </div>
+        <div class="cr">
+          <span class="cl">ω₂ (rad/s)</span>
+          <input type="range" min="600" max="3000" step="100" value="1000" id="w2" oninput="upd()">
+          <span class="cv or" id="vw2">1000</span>
+        </div>
+        <div class="cr">
+          <span class="cl">φ₂ (degrees)</span>
+          <input type="range" min="0" max="360" step="20" value="0" id="p2" oninput="upd()">
+          <span class="cv or" id="vp2">0°</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="ph2">
+      <p class="slabel">Curve 2</p>
+      <div class="ph">Switch to "Compare two curves"<br>to enable Curve 2 controls</div>
+    </div>
+  </div>
+
+  <!-- ASSESSMENT -->
+  <div class="card">
+    <p class="slabel">Assessment</p>
+    <div class="qbox" id="qbox">Loading question…</div>
+    <div class="arow">
+      <input type="text" id="ans" placeholder="Type your answer here…" onkeydown="if(event.key==='Enter')sub()">
+      <button class="sbtn" onclick="sub()">Submit ↗</button>
+    </div>
+    <div id="fbok"  class="fb fb-ok"></div>
+    <div id="fbbad" class="fb fb-bad"></div>
+    <div id="fbtip" class="fb fb-tip"></div>
+    <div class="brow">
+      <button class="nqbtn" onclick="newQ()">↺ New question</button>
+      <div class="srow">
+        <span class="schip">✓ Correct: <span id="sc">0</span></span>
+        <span class="schip">✗ Incorrect: <span id="sw">0</span></span>
+      </div>
+    </div>
+  </div>
+
+  <footer>Sinusoidal Explorer · Undergraduate STEM · Powered by Claude AI</footer>
+</div>
+
+<script>
+/* ── PASTE YOUR API KEY HERE ── */
+const ANTHROPIC_API_KEY = '';
+/* ─────────────────────────── */
+
+const $  = id => document.getElementById(id);
+const gv = id => parseFloat($(id).value);
+const d2r = d => d * Math.PI / 180;
+
+let mode = 'c1', scoreC = 0, scoreW = 0, curQ = null, answered = false;
+let dotX = null; // current mouse x position in canvas pixels
+
+if (!ANTHROPIC_API_KEY) $('notice').style.display = 'block';
+
+/* ── layout constants (updated on resize) ── */
+let PAD = { top:24, right:24, bottom:44, left:56 };
+let CW = 760, CH_PX = 280;
+const YMAX = 3.2;
+
+function P() {
+  const p1d = gv('p1'), p2d = gv('p2');
+  return { A1:gv('A1'), w1:gv('w1'), p1d, p1r:d2r(p1d),
+           A2:gv('A2'), w2:gv('w2'), p2d, p2r:d2r(p2d) };
+}
+function phi(d) { return d === 0 ? '0°' : d + '°'; }
+
+/* ── time axis: 3 periods of curve 1, in seconds ── */
+function getTmax(w1) { return 3 * (2 * Math.PI / w1); }
+
+/* convert t (seconds) → canvas x pixel */
+function tToX(t, tmax) { return PAD.left + (CW - PAD.left - PAD.right) * (t / tmax); }
+/* convert y value → canvas y pixel */
+function yToY(y) { return PAD.top + (CH_PX - PAD.top - PAD.bottom) * (1 - (y + YMAX) / (2 * YMAX)); }
+/* canvas x → t in seconds */
+function xToT(cx, tmax) { return (cx - PAD.left) / (CW - PAD.left - PAD.right) * tmax; }
+
+/* ── labels ── */
+function updateLabels() {
+  const p = P();
+  $('vA1').textContent = p.A1.toFixed(1);
+  $('vw1').textContent = p.w1;
+  $('vp1').textContent = phi(p.p1d);
+  $('vA2').textContent = p.A2.toFixed(1);
+  $('vw2').textContent = p.w2;
+  $('vp2').textContent = phi(p.p2d);
+  $('eq1').textContent = `y\u2081(t) = ${p.A1.toFixed(1)} sin(${p.w1}t + ${phi(p.p1d)})`;
+  $('eq2').textContent = `y\u2082(t) = ${p.A2.toFixed(1)} sin(${p.w2}t + ${phi(p.p2d)})`;
+}
+
+/* ── main draw ── */
+function drawGraph() {
+  const canvas = $('cv');
+  const ctx = canvas.getContext('2d');
+  CW = canvas.width; CH_PX = canvas.height;
+  const gW = CW - PAD.left - PAD.right;
+  const gH = CH_PX - PAD.top - PAD.bottom;
+
+  ctx.clearRect(0, 0, CW, CH_PX);
+  ctx.fillStyle = '#fafafa';
+  ctx.fillRect(0, 0, CW, CH_PX);
+
+  const p = P();
+  const tmax = getTmax(p.w1);
+  const T_ms = (2 * Math.PI / p.w1) * 1000; // period in ms
+
+  /* ── grid lines ── */
+  ctx.strokeStyle = '#e0e0dc'; ctx.lineWidth = 1;
+
+  // horizontal grid (y values)
+  const yTicks = [-3, -2, -1, 0, 1, 2, 3];
+  yTicks.forEach(v => {
+    const y = yToY(v);
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + gW, y); ctx.stroke();
+  });
+
+  // vertical grid: integer ms values
+  const tmax_ms = tmax * 1000;
+  const totalMs = Math.floor(tmax_ms);
+  // choose tick spacing so we get ~6-8 ticks
+  let tickStep = 1;
+  if (totalMs > 40) tickStep = 5;
+  if (totalMs > 80) tickStep = 10;
+  if (totalMs > 160) tickStep = 20;
+
+  ctx.strokeStyle = '#e0e0dc'; ctx.lineWidth = 1;
+  for (let ms = 0; ms <= totalMs; ms += tickStep) {
+    const t_s = ms / 1000;
+    const x = tToX(t_s, tmax);
+    if (x < PAD.left || x > PAD.left + gW) continue;
+    ctx.beginPath(); ctx.moveTo(x, PAD.top); ctx.lineTo(x, PAD.top + gH); ctx.stroke();
+  }
+
+  /* ── axes ── */
+  ctx.strokeStyle = '#aaa'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(PAD.left, PAD.top); ctx.lineTo(PAD.left, PAD.top + gH);
+  ctx.moveTo(PAD.left, PAD.top + gH); ctx.lineTo(PAD.left + gW, PAD.top + gH);
+  ctx.stroke();
+
+  // zero line
+  const y0 = yToY(0);
+  ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(PAD.left, y0); ctx.lineTo(PAD.left + gW, y0); ctx.stroke();
+
+  /* ── y-axis labels ── */
+  ctx.fillStyle = '#888'; ctx.font = '11px monospace'; ctx.textAlign = 'right';
+  yTicks.forEach(v => {
+    ctx.fillText(v.toFixed(0), PAD.left - 6, yToY(v) + 4);
+  });
+
+  /* ── x-axis labels: integer ms ── */
+  ctx.textAlign = 'center'; ctx.fillStyle = '#888'; ctx.font = '11px monospace';
+  for (let ms = 0; ms <= totalMs; ms += tickStep) {
+    const t_s = ms / 1000;
+    const x = tToX(t_s, tmax);
+    if (x < PAD.left || x > PAD.left + gW + 2) continue;
+    ctx.fillText(ms + ' ms', x, PAD.top + gH + 16);
+  }
+
+  /* ── axis titles ── */
+  ctx.fillStyle = '#555'; ctx.font = '12px system-ui'; ctx.textAlign = 'center';
+  ctx.fillText('t (ms)', PAD.left + gW / 2, CH_PX - 4);
+  ctx.save();
+  ctx.translate(13, PAD.top + gH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('y(t)', 0, 0);
+  ctx.restore();
+
+  /* ── plot curve ── */
+  function plotCurve(A, w, phi_r, color, dashed) {
+    const N = 800;
+    ctx.beginPath();
+    ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+    ctx.setLineDash(dashed ? [8, 5] : []);
+    for (let i = 0; i <= N; i++) {
+      const t = (i / N) * tmax;
+      const cx = tToX(t, tmax);
+      const cy = yToY(A * Math.sin(w * t + phi_r));
+      i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy);
+    }
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  plotCurve(p.A1, p.w1, p.p1r, '#2266cc', false);
+  if (mode === 'cmp') plotCurve(p.A2, p.w2, p.p2r, '#cc4400', true);
+
+  /* ── moving dot ── */
+  if (dotX !== null) {
+    const gLeft = PAD.left, gRight = PAD.left + gW;
+    const cx = Math.max(gLeft, Math.min(gRight, dotX));
+    const t_s  = xToT(cx, tmax);
+    const t_ms = t_s * 1000;
+
+    // Dot on curve 1
+    const y1 = p.A1 * Math.sin(p.w1 * t_s + p.p1r);
+    const cy1 = yToY(y1);
+    ctx.beginPath();
+    ctx.arc(cx, cy1, 6, 0, 2 * Math.PI);
+    ctx.fillStyle = '#2266cc'; ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+    // vertical dashed cursor line
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = 'rgba(0,0,0,0.2)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx, PAD.top); ctx.lineTo(cx, PAD.top + gH); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Dot on curve 2 if compare mode
+    let y2 = null;
+    if (mode === 'cmp') {
+      y2 = p.A2 * Math.sin(p.w2 * t_s + p.p2r);
+      const cy2 = yToY(y2);
+      ctx.beginPath();
+      ctx.arc(cx, cy2, 6, 0, 2 * Math.PI);
+      ctx.fillStyle = '#cc4400'; ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+    }
+
+    // position readout tooltip
+    const rd = $('readout');
+    let html = `t = ${t_ms.toFixed(3)} ms\ny₁ = ${y1.toFixed(4)}`;
+    if (y2 !== null) html += `\ny₂ = ${y2.toFixed(4)}`;
+    rd.style.display = 'block';
+    rd.innerHTML = html.replace(/\n/g, '<br>');
+
+    // position tooltip relative to .cbox
+    const scaleX = CW / $('cv').getBoundingClientRect().width;
+    const dispX  = cx / scaleX;
+    const dispY  = cy1 / scaleX; // approximate
+    rd.style.left = dispX + 'px';
+    rd.style.top  = (PAD.top / scaleX + (cy1 - PAD.top) / scaleX) + 'px';
+
+    // keep tooltip inside card
+    rd.style.transform = cx > CW - 120 ? 'translate(-100%, -110%)' : 'translate(-50%, -110%)';
+  }
+}
+
+function upd() { updateLabels(); drawGraph(); }
+
+function setMode(m) {
+  mode = m;
+  $('btn1').className = 'tbtn' + (m === 'c1'  ? ' on' : '');
+  $('btn2').className = 'tbtn' + (m === 'cmp' ? ' on' : '');
+  $('c2ctrl').style.display = m === 'cmp' ? 'block' : 'none';
+  $('ph2').style.display    = m === 'cmp' ? 'none'  : 'block';
+  $('leg2').style.display   = m === 'cmp' ? 'inline': 'none';
+  $('eq2').style.display    = m === 'cmp' ? 'inline-block' : 'none';
+  upd();
+}
+
+/* ── mouse interaction ── */
+function onMove(e) {
+  const canvas = $('cv');
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  dotX = (e.clientX - rect.left) * scaleX;
+  drawGraph();
+}
+function onLeave() {
+  dotX = null;
+  $('readout').style.display = 'none';
+  drawGraph();
+}
+
+function resizeCanvas() {
+  const canvas = $('cv');
+  const rect = canvas.getBoundingClientRect();
+  if (rect.width > 0) { canvas.width = Math.round(rect.width); canvas.height = 280; }
+  drawGraph();
+}
+
+/* ── Question bank ── */
+const QT = [
+  () => {
+    const p = P(); const A2 = +(p.A1 * 2).toFixed(1);
+    return {
+      text:`Curve 1 is y(t) = ${p.A1.toFixed(1)} sin(${p.w1}t + ${phi(p.p1d)}). If you double the amplitude to A = ${A2}, what is the new maximum value of y(t)? Does the period or phase change?`,
+      ans:A2, topic:'amplitude doubling',
+      kw:[`${A2}`,'amplitude','maximum','double','twice','peak','no'],
+      hint:`Amplitude A sets the peak value directly. Doubling A₁ = ${p.A1.toFixed(1)} gives A = ${A2}, so y(t) reaches ±${A2}. Only the wave height changes — period T = 2π/ω and phase φ are unaffected. Try compare mode!`
+    };
+  },
+  () => {
+    const p = P(); const T = +(2000 * Math.PI / p.w1).toFixed(3);
+    return {
+      text:`For Curve 1 with ω₁ = ${p.w1} rad/s, what is the period T in milliseconds? Give three decimal places.`,
+      ans:T, topic:'period from omega',
+      kw:[`${T}`,'period','2pi','ms','millisecond'],
+      hint:`T = 2π / ω. In ms: T = (2π / ${p.w1}) × 1000 ≈ ${T} ms. On the graph, T is the distance between successive peaks — use the hover dot to measure it!`
+    };
+  },
+  () => {
+    const p = P(); const f = +(p.w1 / (2 * Math.PI)).toFixed(1);
+    return {
+      text:`What is the ordinary frequency f in Hz for Curve 1 with ω₁ = ${p.w1} rad/s?`,
+      ans:f, topic:'frequency in Hz',
+      kw:[`${f}`,'hz','hertz','cycles','frequency'],
+      hint:`f = ω / (2π) = ${p.w1} / (2π) ≈ ${f} Hz — meaning ${f} complete cycles per second. Note f = 1/T.`
+    };
+  },
+  () => {
+    const p = P(); const shift = +(p.p1r / p.w1 * 1000).toFixed(3);
+    return {
+      text:`Curve 1 has φ₁ = ${phi(p.p1d)} and ω₁ = ${p.w1} rad/s. In which direction does φ shift the waveform, and by how many milliseconds?`,
+      ans:Math.abs(shift), topic:'phase shift in time',
+      kw:['left','right','earlier','later',`${Math.abs(shift)}`,'shift','advance','delay'],
+      hint:`Time shift Δt = φ / ω = ${p.p1r.toFixed(4)} / ${p.w1} s ≈ ${Math.abs(shift)} ms. Positive φ shifts the wave LEFT (starts earlier). Use compare mode with φ₂ = 0° and the hover dot to measure the shift directly!`
+    };
+  },
+  () => {
+    const p = P();
+    return {
+      text:`With A₁ = ${p.A1.toFixed(1)}, state the maximum and minimum values of y(t). If ω changes, do these extremes change?`,
+      ans:p.A1, topic:'max min independence',
+      kw:[`${p.A1.toFixed(1)}`,`-${p.A1.toFixed(1)}`,'no','unchanged','amplitude','independent'],
+      hint:`sin(·) always ranges from −1 to +1, so y(t) ranges from −A to +A. Max = +${p.A1.toFixed(1)}, min = −${p.A1.toFixed(1)}. Changing ω only compresses the wave horizontally — peak height is unchanged.`
+    };
+  },
+  () => {
+    const p = P(); const w2 = p.w1 + 200;
+    const T1 = +(2000 * Math.PI / p.w1).toFixed(3);
+    const T2 = +(2000 * Math.PI / w2).toFixed(3);
+    return {
+      text:`If ω increases from ${p.w1} to ${w2} rad/s (A and φ fixed), does period T increase or decrease? Compute T₁ and T₂ in ms.`,
+      ans:T2, topic:'omega vs period',
+      kw:['decrease','shorter','smaller',`${T2}`,`${T1}`,'inversely','compressed'],
+      hint:`T = 2π/ω, so larger ω → shorter T. T₁ = ${T1} ms → T₂ = ${T2} ms. The wave is compressed horizontally. Try comparing the two curves with ω₂ = ${w2} and use the dot to confirm the period change.`
+    };
+  }
+];
+
+function newQ() {
+  $('ans').value = '';
+  $('fbok').style.display = $('fbbad').style.display = $('fbtip').style.display = 'none';
+  answered = false;
+  curQ = QT[Math.floor(Math.random() * QT.length)]();
+  $('qbox').textContent = curQ.text;
+}
+
+function sub() {
+  if (!curQ || answered) return;
+  const raw = $('ans').value.trim(); if (!raw) return;
+  answered = true;
+  $('fbok').style.display = $('fbbad').style.display = $('fbtip').style.display = 'none';
+  ANTHROPIC_API_KEY ? aiEval(raw, curQ) : localEval(raw, curQ);
+}
+
+function localEval(txt, q) {
+  const lo = txt.toLowerCase();
+  const nm = txt.match(/[\d.]+/); const nv = nm ? parseFloat(nm[0]) : null;
+  const numOk = nv !== null && Math.abs(nv - q.ans) / Math.max(1, Math.abs(q.ans)) < 0.05;
+  const kwOk  = q.kw.some(k => lo.includes(k.toLowerCase()));
+  if (numOk || kwOk) {
+    scoreC++; $('sc').textContent = scoreC;
+    $('fbok').innerHTML = '<strong>✓ Looks correct!</strong> Good understanding.';
+    $('fbok').style.display = 'block';
+  } else {
+    scoreW++; $('sw').textContent = scoreW;
+    $('fbbad').innerHTML = '<strong>✗ Not quite.</strong> Review and try again.';
+    $('fbbad').style.display = 'block';
+    $('fbtip').innerHTML = '<strong>Hint:</strong> ' + q.hint;
+    $('fbtip').style.display = 'block';
+  }
+}
+
+async function aiEval(txt, q) {
+  const ld = document.createElement('div');
+  ld.className='ldg'; ld.id='ld'; ld.textContent='Evaluating…'; $('ans').after(ld);
+  const sys = `You are a physics tutor evaluating undergraduate STEM students on y(t)=A sin(ωt+φ). Units: ω in rad/s (600–3000), φ in degrees (0–360°), time in ms. Evaluate conceptual understanding not just numeric precision. Respond ONLY with valid JSON, no markdown: {"correct":true/false,"feedback":"one sentence","hint":"Socratic nudge if wrong, empty string if correct"}. Context: ${JSON.stringify({ans:q.ans,topic:q.topic,kw:q.kw})}`;
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':ANTHROPIC_API_KEY,
+               'anthropic-version':'2023-06-01',
+               'anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:400,system:sys,
+        messages:[{role:'user',content:`Q: ${q.text}\nStudent answer: "${txt}"`}]})
+    });
+    const data = await r.json();
+    const res = JSON.parse((data.content||[]).map(b=>b.text||'').join('').replace(/```json|```/g,'').trim());
+    $('ld')?.remove();
+    if (res.correct) {
+      scoreC++; $('sc').textContent=scoreC;
+      $('fbok').innerHTML=`<strong>✓ Correct!</strong> ${res.feedback}`;
+      $('fbok').style.display='block';
+    } else {
+      scoreW++; $('sw').textContent=scoreW;
+      $('fbbad').innerHTML=`<strong>✗ Not quite.</strong> ${res.feedback}`;
+      $('fbbad').style.display='block';
+      if(res.hint){$('fbtip').innerHTML=`<strong>Hint:</strong> ${res.hint}`;$('fbtip').style.display='block';}
+    }
+  } catch(e) { $('ld')?.remove(); localEval(txt,q); }
+}
+
+window.addEventListener('load', () => { resizeCanvas(); updateLabels(); newQ(); });
+window.addEventListener('resize', resizeCanvas);
+</script>
+</body>
+</html>
